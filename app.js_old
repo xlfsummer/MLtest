@@ -1,0 +1,97 @@
+const fs = require('fs');
+const getPixels = require('get-pixels');
+
+require('./lib/startup.js').init();
+
+getPixels("./asset/1.png", function (err, pixels) {
+    /** @type {Uint8Array} */
+    var data = pixels.data;
+    var monoColorData = Array.from(data.filter((v, i) => !(i % 4))).map(v => 1 - v / 255);
+    train(monoColorData, [1, 0]);
+});
+
+var layer1, layer_o;
+
+/**
+ * 识别图像
+ * @param {number[]} data
+ * @returns {Nerve[][]}
+ */
+function recognize(data) {
+    var layer_i = data.map(d => ({ active: d }));
+
+    if(!layer1)
+        layer1 = [
+            Nerve.initRandom(data.length),
+            Nerve.initRandom(data.length)
+        ];
+
+    if(!layer_o)
+        layer_o = [
+            Nerve.initRandom(2),
+            Nerve.initRandom(2)
+        ];
+
+    var nerveNetwork = [layer_i, layer1, layer_o];
+
+    layer1.forEach(n => n.link(layer_i));
+    layer_o.forEach(n => n.link(layer1));
+
+    return nerveNetwork;
+}
+
+/**
+ *
+ * @param {number[]} data
+ * @param {number[]} exp 对数据识别结果的期望
+ */
+function train(data, exp) {
+
+    var nerveNetwork = recognize(data);
+
+    var outputLayer = nerveNetwork[2];
+
+    var costs = outputLayer.map((n, i) => (n.active - exp[i]) ** 2);
+
+    costs.forEach(function (cost) {
+        cost
+    });
+}
+
+class Nerve{
+    /**
+     * @param {number} bias
+     * @param {number[]} weights
+     */
+    constructor(bias,weights) {
+        this.bias = bias;
+        this.weights = weights;
+        this.active = null;
+    }
+
+    static initRandom(linkCount) {
+        var r = Math.random;
+        var linkActive = new Array(linkCount).fill(0).map(_ => r());
+        return new Nerve(r(), linkActive);
+    }
+
+    /**
+     *
+     * @param {number[]} layer
+     */
+    link(layer) {
+        var totalActive = layer.reduce((totalActive, prevNerve, i) => {
+            return totalActive += this.weights[i] * prevNerve.active;
+        }, 0);
+        this.active = sigmoid(totalActive + this.bias);
+    }
+}
+
+/**
+ *
+ * @param {number} x
+ * @returns {number}
+ */
+function sigmoid(x) {
+    return Math.tanh(x);
+}
